@@ -3,18 +3,18 @@ import '../../core/payment_gateway.dart';
 import '../../core/payment_result.dart';
 import 'authnet_acceptjs_webview.dart';
 
-/// Client-only gateway that opens Accept.js to tokenize card data and
-/// returns the opaque token to Flutter. No secrets, no backend calls.
+/// Opens your HTTPS Accept.js page in a WebView and returns the opaque token.
+/// No secrets in client. You still need a server later to charge with this token.
 class AuthNetAcceptJsGateway implements PaymentGateway {
   AuthNetAcceptJsGateway({
+    required this.hostedHtmlUrl,
     required this.apiLoginId,
     required this.clientKey,
-    this.sandbox = true,
   });
 
-  final String apiLoginId; // safe to embed
-  final String clientKey;  // safe to embed
-  final bool sandbox;
+  final String hostedHtmlUrl; // e.g. https://yourdomain.com/acceptjs.html
+  final String apiLoginId;
+  final String clientKey;
 
   @override
   String get name => 'Authorize.Net (Accept.js)';
@@ -22,9 +22,9 @@ class AuthNetAcceptJsGateway implements PaymentGateway {
   @override
   Future<PaymentResult> pay({
     required BuildContext context,
-    required int amountSmallestUnit, // not used by Accept.js tokenization
-    required String currency,        // not used in tokenization
-    required String email,           // not used in tokenization
+    required int amountSmallestUnit, // metadata only
+    required String currency,        // metadata only
+    required String email,           // metadata only
     String? reference,
   }) async {
     try {
@@ -32,9 +32,9 @@ class AuthNetAcceptJsGateway implements PaymentGateway {
         context,
         MaterialPageRoute(
           builder: (_) => AuthNetAcceptJsWebView(
+            hostedHtmlUrl: hostedHtmlUrl,
             apiLoginId: apiLoginId,
             clientKey: clientKey,
-            sandbox: sandbox,
           ),
         ),
       );
@@ -45,10 +45,8 @@ class AuthNetAcceptJsGateway implements PaymentGateway {
 
       if (result['status'] == 'success') {
         return PaymentSuccess(name, data: {
-          // <-- This is the "token you asked for":
           'dataDescriptor': result['dataDescriptor'],
           'dataValue': result['dataValue'],
-          // Include your own metadata if desired:
           'amount_cents': amountSmallestUnit,
           'currency': currency,
           'email': email,
